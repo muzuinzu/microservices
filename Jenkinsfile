@@ -4,6 +4,7 @@ pipeline {
     environment {
         DOCKERHUB_USER = 'muzuinzu'
         BUILD_TAG = "v${env.BUILD_NUMBER}"
+        KUBECONFIG_PATH = "C:\\Users\\HP\\.kube\\config"
     }
 
     stages {
@@ -99,13 +100,29 @@ pipeline {
             }
         }
 
+        // ✅ NEW: Ensure Minikube is running
+        stage('Ensure Minikube Running') {
+            steps {
+                bat '''
+                minikube status || minikube start --driver=docker
+                '''
+            }
+        }
+
         stage('Deploy to Minikube') {
             steps {
-                bat 'set KUBECONFIG=C:\\ProgramData\\Jenkins\\.kube\\config && kubectl config current-context'
-                bat 'set KUBECONFIG=C:\\ProgramData\\Jenkins\\.kube\\config && kubectl get nodes'
-                bat 'set KUBECONFIG=C:\\ProgramData\\Jenkins\\.kube\\config && kubectl create namespace ms --dry-run=client -o yaml | kubectl apply -f -'
-                bat 'set KUBECONFIG=C:\\ProgramData\\Jenkins\\.kube\\config && kubectl apply -f kubernetes\\yamlfile'
-                bat 'set KUBECONFIG=C:\\ProgramData\\Jenkins\\.kube\\config && kubectl get pods -n ms'
+                bat '''
+                set KUBECONFIG=%KUBECONFIG_PATH%
+
+                kubectl config current-context
+                kubectl get nodes
+
+                kubectl create namespace ms --dry-run=client -o yaml | kubectl apply -f -
+
+                kubectl apply -f kubernetes\\yamlfile
+
+                kubectl get pods -n ms
+                '''
             }
         }
     }
