@@ -101,9 +101,10 @@ pipeline {
 
         stage('Deploy to Minikube') {
             steps {
-                bat 'kubectl get nodes'
-                bat 'kubectl apply -f kubernetes\\yamlfile'
-                bat 'kubectl get pods -A'
+                bat 'set KUBECONFIG=C:\\ProgramData\\Jenkins\\.kube\\config && kubectl config current-context'
+                bat 'set KUBECONFIG=C:\\ProgramData\\Jenkins\\.kube\\config && kubectl get nodes'
+                bat 'set KUBECONFIG=C:\\ProgramData\\Jenkins\\.kube\\config && kubectl apply -f kubernetes\\yamlfile'
+                bat 'set KUBECONFIG=C:\\ProgramData\\Jenkins\\.kube\\config && kubectl get pods -A'
             }
         }
     }
