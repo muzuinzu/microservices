@@ -1,160 +1,72 @@
+```groovy
 pipeline {
     agent any
+    environment {
+        DOCKERHUB_USER = 'muzuinzu'
+        BUILD_TAG = "v${env.BUILD_NUMBER}"
+    }
     stages {
-        stage('SCM Checkout') {
+        stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/rageshtamizharasu/microservices.git'
-                sh 'ls'
+                git branch: 'main', url: 'https://github.com/muzuinzu/microservices.git'
+                bat 'dir'
             }
         }
-
         stage('SonarQube Analysis') {
-            steps {
-                parallel (
-                    'nodejs application': {
+            parallel {
+                stage('Node + React') {
+                    steps {
                         script {
-                            dir('cart-microservice-nodejs') {
-                                def scannerHome = tool 'sonarscanner4'
-                                withSonarQubeEnv('sonar-pro') {
-                                    sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=cart-nodejs"
+                            def scanner = tool 'sonarscanner4'
+                            withSonarQubeEnv('sonar-pro') {
+                                dir('cart-microservice-nodejs') {
+                                    bat "\"${scanner}\\bin\\sonar-scanner.bat\" -Dsonar.projectKey=cart-nodejs"
                                 }
-                            }
-                            dir('ui-web-app-reactjs') {
-                                def scannerHome = tool 'sonarscanner4'
-                                withSonarQubeEnv('sonar-pro') {
-                                    sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=ui-reactjs"
-                                }
-                            }
-                        }
-                    },
-                    'spring boot application': {
-                        script {
-                            dir('offers-microservice-spring-boot') {
-                                def mvn = tool 'maven3'
-                                withSonarQubeEnv('sonar-pro') {
-                                    sh "${mvn}/bin/mvn clean verify sonar:sonar -Dsonar.projectKey=offers-spring-boot -Dsonar.projectName=offers-spring-boot"
-                                }
-                            }
-                            dir('shoes-microservice-spring-boot') {
-                                def mvn = tool 'maven3'
-                                withSonarQubeEnv('sonar-pro') {
-                                    sh "${mvn}/bin/mvn clean verify sonar:sonar -Dsonar.projectKey=shoe-spring-boot -Dsonar.projectName=shoes-spring-boot"
-                                }
-                            }
-                            dir('zuul-api-gateway') {
-                                def mvn = tool 'maven3'
-                                withSonarQubeEnv('sonar-pro') {
-                                    sh "${mvn}/bin/mvn clean verify sonar:sonar -Dsonar.projectKey=zuul-api -Dsonar.projectName=zuul-api"
-                                }
-                            }
-                        }
-                    },
-                    'python app': {
-                        script {
-                            dir('wishlist-microservice-python') {
-                                def scannerHome = tool 'sonarscanner4'
-                                withSonarQubeEnv('sonar-pro') {
-                                    sh """/var/lib/jenkins/tools/hudson.plugins.sonar.SonarRunnerInstallation/sonarscanner4/bin/sonar-scanner \
-                                        -D sonar.projectVersion=1.0-SNAPSHOT \
-                                        -D sonar.sources=. \
-                                        -D sonar.login=admin \
-                                        -D sonar.password=admin123 \
-                                        -D sonar.projectKey=project \
-                                        -D sonar.projectName=wishlist-py \
-                                        -D sonar.inclusions=index.py \
-                                        -D sonar.sourceEncoding=UTF-8 \
-                                        -D sonar.language=python \
-                                        -D sonar.host.url=http://localhost:9000/"""
+                                dir('ui-web-app-reactjs') {
+                                    bat "\"${scanner}\\bin\\sonar-scanner.bat\" -Dsonar.projectKey=ui-reactjs"
                                 }
                             }
                         }
                     }
-                )
+                }
+                stage('Spring Boot') {
+                    steps {
+                        script {
+                            def mvn = tool 'maven3'
+                            withSonarQubeEnv('sonar-pro') {
+                                dir('offers-microservice-spring-boot') {
+                                    bat "\"${mvn}\\bin\\mvn.cmd\" clean verify sonar:sonar -Dsonar.projectKey=offers-spring"
+                                }
+                                dir('shoes-microservice-spring-boot') {
+                                    bat "\"${mvn}\\bin\\mvn.cmd\" clean verify sonar:sonar -Dsonar.projectKey=shoes-spring"
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
-
-        stage('Build Docker Image and push') {
-            steps {
-                parallel (
-                    'docker login': {
-                        script {
-                        // Directly assign Docker ID and password
-                        def dockerId = 'ragesh2u'
-                        
-                        sh "docker login -u ${dockerId} -p ${dockerPassword}"
-                        }
-                    },
-                    'ui-web-app-reactjs': {
-                        dir('ui-web-app-reactjs') {
-                            sh """
-                            docker build -t ragesh2u/ui:v1 .
-                            docker push ragesh2u/ui:v1
-                            docker rmi ragesh2u/ui:v1
-                            """
-                        }
-                    },
-                    'zuul-api-gateway': {
-                        dir('zuul-api-gateway') {
-                            sh """
-                            docker build -t ragesh2u/api:v1 .
-                            docker push ragesh2u/api:v1
-                            docker rmi ragesh2u/api:v1
-                            """
-                        }
-                    },
-                    'offers-microservice-spring-boot': {
-                        dir('offers-microservice-spring-boot') {
-                            sh """
-                            docker build -t ragesh2u/spring:v1 .
-                            docker push ragesh2u/spring:v1
-                            docker rmi ragesh2u/spring:v1
-                            """
-                        }
-                    },
-                    'shoes-microservice-spring-boot': {
-                        dir('shoes-microservice-spring-boot') {
-                            sh """
-                            docker build -t ragesh2u/springs:v2 .
-                            docker push ragesh2u/springs:v2
-                            docker rmi ragesh2u/springs:v2
-                            """
-                        }
-                    },
-                    'cart-microservice-nodejs': {
-                        dir('cart-microservice-nodejs') {
-                            sh """
-                            docker build -t ragesh2u/ui:v2 .
-                            docker push ragesh2u/ui:v2
-                            docker rmi ragesh2u/ui:v2
-                            """
-                        }
-                    },
-                    'wishlist-microservice-python': {
-                        dir('wishlist-microservice-python') {
-                            sh """
-                            docker build -t ragesh2u/python:v1 .
-                            docker push ragesh2u/python:v1
-                            docker rmi ragesh2u/python:v1
-                            """
-                        }
-                    }
-                )
+        stage('Docker Build') {
+            parallel {
+                stage('UI') { steps { bat 'docker build -t ui:%BUILD_TAG% ui-web-app-reactjs' } }
+                stage('API') { steps { bat 'docker build -t api:%BUILD_TAG% zuul-api-gateway' } }
+                stage('Offers') { steps { bat 'docker build -t offers:%BUILD_TAG% offers-microservice-spring-boot' } }
+                stage('Shoes') { steps { bat 'docker build -t shoes:%BUILD_TAG% shoes-microservice-spring-boot' } }
+                stage('Cart') { steps { bat 'docker build -t cart:%BUILD_TAG% cart-microservice-nodejs' } }
+                stage('Wishlist') { steps { bat 'docker build -t wishlist:%BUILD_TAG% wishlist-microservice-python' } }
             }
         }
-
-        stage('Deploy on k8s') {
+        stage('Deploy to Minikube') {
             steps {
-                parallel (
-                    'deploy on k8s': {
-                        script {
-                            withKubeCredentials(kubectlCredentials: [[ credentialsId: 'kubernetes', namespace: 'ms' ]]) {
-                                sh 'kubectl get ns' 
-                                sh 'kubectl apply -f kubernetes/yamlfile'
-                            }
-                        }
-                    }
-                )
+                bat 'kubectl get nodes'
+                bat 'kubectl apply -f kubernetes\\yamlfile'
+                bat 'kubectl get pods -A'
             }
         }
     }
+    post {
+        success { echo 'Pipeline completed successfully' }
+        failure { echo 'Pipeline failed. Check logs.' }
+    }
 }
+```
